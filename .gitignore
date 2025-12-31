@@ -1,0 +1,19 @@
+# Node
+**/node_modules/
+**/dist/
+**/build/
+
+# Environment files
+**/.env
+**/.env.*
+**/appsettings.json
+**/appsettings.Development.json
+
+# Logs
+**/*.log
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
