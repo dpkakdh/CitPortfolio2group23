@@ -48,18 +48,15 @@ namespace Portfolio2group23.Services
 
             var skip = (page - 1) * pageSize;
 
-            // Start with Titles
             IQueryable<Title> baseQuery = _db.Titles.AsNoTracking();
 
-            // AND-match every term across (PrimaryTitle OR OriginalTitle OR TitleAka.Title)
+            // AND match every term across PrimaryTitle / OriginalTitle
             foreach (var term in terms)
             {
                 var pat = $"%{term}%";
-
                 baseQuery = baseQuery.Where(t =>
                     (t.PrimaryTitle != null && EF.Functions.ILike(t.PrimaryTitle, pat)) ||
-                    (t.OriginalTitle != null && EF.Functions.ILike(t.OriginalTitle, pat)) ||
-                    t.TitleAkas.Any(a => a.Title != null && EF.Functions.ILike(a.Title, pat))
+                    (t.OriginalTitle != null && EF.Functions.ILike(t.OriginalTitle, pat))
                 );
             }
 
@@ -67,7 +64,7 @@ namespace Portfolio2group23.Services
 
             var items = await baseQuery
                 .OrderByDescending(t => t.StartYear)
-                .ThenBy(t => t.PrimaryTitle)
+                .ThenBy(t => t.PrimaryTitle ?? t.OriginalTitle)
                 .Skip(skip)
                 .Take(pageSize)
                 .Select(t => new MovieDto
@@ -79,14 +76,16 @@ namespace Portfolio2group23.Services
                     NumVotes = t.TitleRating != null ? t.TitleRating.NumVotes : null,
                     PosterUrl = t.OmdbData != null ? t.OmdbData.Poster : null,
 
-                    IsBookmarked = userId != null && t.BookmarkTitles.Any(b => b.UserId == userId),
+                    IsBookmarked = userId != null && t.BookmarkTitles.Any(b => b.UserId == userId.Value),
                     UserRating = userId != null
-                        ? t.Ratings.Where(r => r.UserId == userId).Select(r => (int?)r.Value).FirstOrDefault()
+                        ? t.Ratings
+                            .Where(r => r.UserId == userId.Value)
+                            .Select(r => (int?)r.Value)
+                            .FirstOrDefault()
                         : null
                 })
                 .ToListAsync(ct);
 
-            // Save history only if authenticated
             if (userId != null)
             {
                 _db.SearchHistories.Add(new SearchHistory
