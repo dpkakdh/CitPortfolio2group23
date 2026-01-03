@@ -14,42 +14,99 @@ namespace Portfolio2group23.Services
             _db = db;
         }
 
-        public async Task<List<MovieDto>> SearchTitlesAsync(string query, int? userId = null, int limit = 50)
+        private static string[] Tokenize(string query)
         {
-            query = query?.Trim() ?? "";
-            if (query.Length == 0) return new List<MovieDto>();
+            return (query ?? "")
+                .Trim()
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(t => t.Length > 0)
+                .Take(10)
+                .ToArray();
+        }
 
-            // Save search history if user is provided
-            if (userId != null)
+        public async Task<PagedResponse<MovieDto>> SearchTitlesPagedAsync(
+            string query,
+            int? userId,
+            int page,
+            int pageSize,
+            CancellationToken ct = default)
+        {
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 1, 200);
+
+            var terms = Tokenize(query);
+            if (terms.Length == 0)
             {
-                _db.SearchHistories.Add(new SearchHistory
+                return new PagedResponse<MovieDto>
                 {
-                    UserId = userId.Value,
-                    SearchQuery = query,
-                    SearchTime = DateTime.UtcNow
-                });
-                await _db.SaveChangesAsync();
+                    Page = page,
+                    PageSize = pageSize,
+                    Total = 0,
+                    Items = new List<MovieDto>()
+                };
             }
 
-            return await _db.Titles
-                .AsNoTracking()
-                .Where(t => (t.PrimaryTitle ?? "").ToLower().Contains(query.ToLower()))
+            var skip = (page - 1) * pageSize;
+
+            // Start with Titles
+            IQueryable<Title> baseQuery = _db.Titles.AsNoTracking();
+
+            // AND-match every term across (PrimaryTitle OR OriginalTitle OR TitleAka.Title)
+            foreach (var term in terms)
+            {
+                var pat = $"%{term}%";
+
+                baseQuery = baseQuery.Where(t =>
+                    (t.PrimaryTitle != null && EF.Functions.ILike(t.PrimaryTitle, pat)) ||
+                    (t.OriginalTitle != null && EF.Functions.ILike(t.OriginalTitle, pat)) ||
+                    t.TitleAkas.Any(a => a.Title != null && EF.Functions.ILike(a.Title, pat))
+                );
+            }
+
+            var total = await baseQuery.CountAsync(ct);
+
+            var items = await baseQuery
                 .OrderByDescending(t => t.StartYear)
-                .Take(limit)
+                .ThenBy(t => t.PrimaryTitle)
+                .Skip(skip)
+                .Take(pageSize)
                 .Select(t => new MovieDto
                 {
                     Tconst = t.Tconst,
-                    Title = t.PrimaryTitle ?? "",
+                    Title = t.PrimaryTitle ?? t.OriginalTitle ?? "",
                     StartYear = t.StartYear,
                     AverageRating = t.TitleRating != null ? t.TitleRating.AverageRating : null,
                     NumVotes = t.TitleRating != null ? t.TitleRating.NumVotes : null,
                     PosterUrl = t.OmdbData != null ? t.OmdbData.Poster : null,
+
                     IsBookmarked = userId != null && t.BookmarkTitles.Any(b => b.UserId == userId),
                     UserRating = userId != null
                         ? t.Ratings.Where(r => r.UserId == userId).Select(r => (int?)r.Value).FirstOrDefault()
                         : null
                 })
-                .ToListAsync();
+                .ToListAsync(ct);
+
+            // Save history only if authenticated
+            if (userId != null)
+            {
+                _db.SearchHistories.Add(new SearchHistory
+                {
+                    UserId = userId.Value,
+                    SearchQuery = string.Join(' ', terms),
+                    SearchTime = DateTime.UtcNow,
+                    ResultsCount = total
+                });
+
+                await _db.SaveChangesAsync(ct);
+            }
+
+            return new PagedResponse<MovieDto>
+            {
+                Page = page,
+                PageSize = pageSize,
+                Total = total,
+                Items = items
+            };
         }
     }
 }

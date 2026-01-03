@@ -1,10 +1,11 @@
-import { apiFetch } from "./http";
+import apiClient from "./apiClient";
 
-export function registerUser(payload) {
-  // Adjust path if your backend uses another route
-  return apiFetch("/api/auth/register", { method: "POST", body: payload });
+export async function registerUser(payload) {
+  const res = await apiClient.post("/api/auth/register", payload);
+  return res.data;
 }
 
-export function loginUser(payload) {
-  return apiFetch("/api/auth/login", { method: "POST", body: payload });
+export async function loginUser(payload) {
+  const res = await apiClient.post("/api/auth/login", payload);
+  return res.data; // expects { token, user? }
 }

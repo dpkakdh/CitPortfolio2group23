@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using Portfolio2group23.DataServiceLayer.Data;
 using Portfolio2group23.DataServiceLayer.Models;
 using Portfolio2group23.Services;
-using System.Security.Claims;
 
 namespace Portfolio2group23.Controllers
 {
@@ -46,13 +45,31 @@ namespace Portfolio2group23.Controllers
             return Ok(new { message = "Name bookmarked" });
         }
 
+        // GET /api/bookmark?page=1&pageSize=20
         [HttpGet]
-        public async Task<IActionResult> GetBookmarks()
+        public async Task<IActionResult> GetBookmarks([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
             int uid = int.Parse(User.FindFirst("uid")!.Value);
-            var bookmarks = await _service.GetUserBookmarksAsync(uid);
-            return Ok(new { count = bookmarks.Count, bookmarks });
+            var result = await _service.GetUserBookmarksPagedAsync(uid, page, pageSize);
+            return Ok(result);
+        }
+
+        // DELETE /api/bookmark/title/tt123
+        [HttpDelete("title/{tconst}")]
+        public async Task<IActionResult> RemoveTitle(string tconst)
+        {
+            int uid = int.Parse(User.FindFirst("uid")!.Value);
+            var ok = await _service.RemoveTitleBookmarkAsync(uid, tconst);
+            return ok ? Ok(new { message = "Title bookmark removed" }) : NotFound(new { error = "Bookmark not found" });
+        }
+
+        // DELETE /api/bookmark/name/nm123
+        [HttpDelete("name/{nconst}")]
+        public async Task<IActionResult> RemoveName(string nconst)
+        {
+            int uid = int.Parse(User.FindFirst("uid")!.Value);
+            var ok = await _service.RemoveNameBookmarkAsync(uid, nconst);
+            return ok ? Ok(new { message = "Name bookmark removed" }) : NotFound(new { error = "Bookmark not found" });
         }
     }
 }
-

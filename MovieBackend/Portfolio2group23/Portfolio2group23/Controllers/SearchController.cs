@@ -1,8 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Portfolio2group23.DataServiceLayer.Data;
+﻿using Microsoft.AspNetCore.Mvc;
 using Portfolio2group23.Services;
-using System.Security.Claims;
 
 namespace Portfolio2group23.Controllers
 {
@@ -11,35 +8,41 @@ namespace Portfolio2group23.Controllers
     public class SearchController : ControllerBase
     {
         private readonly SearchService _service;
-        private readonly AppDbContext _db;
 
-        public SearchController(SearchService service, AppDbContext db)
+        public SearchController(SearchService service)
         {
             _service = service;
-            _db = db;
         }
 
+        // Accept BOTH /api/search?q=... and /api/search?query=...
         [HttpGet]
-        public async Task<IActionResult> Search([FromQuery] string q, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> Search(
+            [FromQuery] string? q,
+            [FromQuery] string? query,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20,
+            CancellationToken ct = default)
         {
-            var results = await _service.SearchTitlesAsync(q, page, pageSize);
+            var effectiveQuery = (q ?? query ?? "").Trim();
 
-            // Record search if user logged in
-            var uid = User.FindFirst("uid")?.Value;
-            if (uid != null)
+            int? uid = null;
+            if (User?.Identity?.IsAuthenticated == true)
             {
-                _db.SearchHistories.Add(new DataServiceLayer.Models.SearchHistory
-                {
-                    UserId = int.Parse(uid),
-                    Query = q,
-                    ResultsCount = results.Count,
-                    SearchedAt = DateTime.UtcNow
-                });
-                await _db.SaveChangesAsync();
+                var claim = User.FindFirst("uid")?.Value;
+                if (int.TryParse(claim, out var parsed)) uid = parsed;
             }
 
-            return Ok(new { query = q, count = results.Count, results });
+            var result = await _service.SearchTitlesPagedAsync(effectiveQuery, uid, page, pageSize, ct);
+
+            // Optional compatibility: if your frontend expects "results" instead of "items"
+            return Ok(new
+            {
+                page = result.Page,
+                pageSize = result.PageSize,
+                total = result.Total,
+                items = result.Items,
+                results = result.Items // keeps old UIs working
+            });
         }
     }
 }
-

@@ -1,8 +1,7 @@
 import apiClient from "./apiClient";
 
-export async function searchTitles(query, page = 1) {
-  const response = await apiClient.get("/api/search", {
-    params: { query, page },
-  });
-  return response.data;
+// GET /api/search?q=&page=&pageSize=
+export async function searchTitles(q, page = 1, pageSize = 24) {
+  const res = await apiClient.get("/api/search", { params: { q, page, pageSize } });
+  return res.data; // { page, pageSize, total, items }
 }

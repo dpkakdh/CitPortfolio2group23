@@ -10,7 +10,6 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Optional: basic hydrate user when token exists
   useEffect(() => {
     if (!token) {
       setUser(null);
@@ -23,7 +22,6 @@ export function AuthProvider({ children }) {
     setLoading(true);
     try {
       const res = await loginUser({ email, password });
-
       const jwt = res?.token;
       if (!jwt) throw new Error("Token not returned from API");
 
@@ -52,8 +50,7 @@ export function AuthProvider({ children }) {
     } catch (err) {
       return {
         success: false,
-        message:
-          err?.response?.data?.message || err?.message || "Registration failed",
+        message: err?.response?.data?.message || err?.message || "Registration failed",
       };
     } finally {
       setLoading(false);

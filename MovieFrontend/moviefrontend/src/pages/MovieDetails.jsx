@@ -3,6 +3,10 @@ import { useParams, Link, useSearchParams } from "react-router-dom";
 import Poster from "../components/movies/Poster";
 import CastStrip from "../components/movies/CastStrip";
 import { getMovieById, getMovies } from "../api/moviesApi";
+import { addTitleBookmark, removeTitleBookmark, getBookmarks } from "../api/bookmarksApi";
+import { rateTitle } from "../api/ratingsApi";
+import Loader from "../components/common/Loader";
+import ErrorMessage from "../components/common/ErrorMessage";
 import { useAuth } from "../context/AuthContext";
 
 function cleanNA(v) {
@@ -15,7 +19,7 @@ function cleanNA(v) {
 export default function MovieDetails() {
   const { id } = useParams(); // tconst
   const [searchParams] = useSearchParams();
-  const { token } = useAuth();
+  const { token } = useAuth(); // only used to decide whether to fetch page list
 
   // read page from URL: /movies/:id?page=3
   const page = Math.max(1, Number(searchParams.get("page") || 1));
@@ -30,6 +34,13 @@ export default function MovieDetails() {
   const [pageMovies, setPageMovies] = useState([]);
   const [pageLoading, setPageLoading] = useState(false);
 
+  // New: bookmark/rating UI state
+  const [uiError, setUiError] = useState("");
+  const [uiBusy, setUiBusy] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [myRating, setMyRating] = useState(null); // number | null
+  const [ratingInput, setRatingInput] = useState("");
+
   // Fetch details
   useEffect(() => {
     if (!id) return;
@@ -37,10 +48,26 @@ export default function MovieDetails() {
     let cancelled = false;
     setLoading(true);
     setNotFound(false);
+    setUiError("");
 
     getMovieById(id)
       .then((data) => {
-        if (!cancelled) setMovie(data);
+        if (cancelled) return;
+        setMovie(data);
+
+        // Try to read bookmark/rating state if backend provides it
+        // (Some endpoints return userRating / isBookmarked, some don't. We handle both.)
+        const ur = data?.userRating ?? data?.rating ?? null;
+        if (ur != null && !Number.isNaN(Number(ur))) {
+          setMyRating(Number(ur));
+          setRatingInput(String(Number(ur)));
+        } else {
+          setMyRating(null);
+          setRatingInput("");
+        }
+
+        const b = data?.isBookmarked;
+        if (typeof b === "boolean") setIsBookmarked(b);
       })
       .catch(() => {
         if (!cancelled) setNotFound(true);
@@ -63,11 +90,10 @@ export default function MovieDetails() {
         if (!token) return;
         setPageLoading(true);
 
-        const res = await getMovies({ limit: LIMIT, offset, token });
+        const res = await getMovies({ limit: LIMIT, offset });
         const list = Array.isArray(res?.results) ? res.results : [];
         if (!alive) return;
 
-        // store only the ids/titles needed for nav
         setPageMovies(
           list.map((m) => ({
             tconst: m.tconst,
@@ -84,6 +110,44 @@ export default function MovieDetails() {
       alive = false;
     };
   }, [token, offset]);
+
+  // New: if backend didn’t return bookmark state, check bookmarks list (cheap + paged)
+  useEffect(() => {
+    let alive = true;
+
+    async function hydrateBookmarkState() {
+      try {
+        if (!token || !id) return;
+
+        // If already known from movie response, don’t re-check
+        if (typeof isBookmarked === "boolean" && isBookmarked) return;
+
+        // Pull first few pages until found or exhausted a small cap
+        // (Keeps it simple; bookmarks count usually small.)
+        const MAX_PAGES = 3;
+        for (let p = 1; p <= MAX_PAGES; p++) {
+          const data = await getBookmarks(p, 50);
+          const items = data?.items ?? [];
+          const found = items.some((x) => x.type === "title" && x.code === id);
+          if (!alive) return;
+          if (found) {
+            setIsBookmarked(true);
+            return;
+          }
+          // If fewer than pageSize returned, no more pages
+          if (items.length < 50) break;
+        }
+      } catch {
+        // ignore; bookmark state can still be toggled manually
+      }
+    }
+
+    hydrateBookmarkState();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, id]);
 
   const uiMovie = useMemo(() => {
     if (!movie) return null;
@@ -142,13 +206,51 @@ export default function MovieDetails() {
     };
   }, [pageMovies, id]);
 
+  async function toggleBookmark() {
+    setUiError("");
+    setUiBusy(true);
+    try {
+      if (!isBookmarked) {
+        await addTitleBookmark(id);
+        setIsBookmarked(true);
+      } else {
+        await removeTitleBookmark(id);
+        setIsBookmarked(false);
+      }
+    } catch (e) {
+      setUiError(e?.message || "Bookmark action failed.");
+    } finally {
+      setUiBusy(false);
+    }
+  }
+
+  async function submitRating() {
+    setUiError("");
+    const v = Number(ratingInput);
+
+    if (!Number.isFinite(v) || v < 1 || v > 10) {
+      setUiError("Rating must be a number from 1 to 10.");
+      return;
+    }
+
+    setUiBusy(true);
+    try {
+      await rateTitle(id, Math.round(v));
+      setMyRating(Math.round(v));
+    } catch (e) {
+      setUiError(e?.message || "Rating failed.");
+    } finally {
+      setUiBusy(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100">
         <div className="mx-auto max-w-6xl px-4 py-10">
-          <p className="text-slate-300">Loading…</p>
+          <Loader />
           <Link to={`/movies?page=${page}`} className="text-indigo-400 hover:underline">
-            ← Back to Movies (Page {page})
+            ← Back to Movies
           </Link>
         </div>
       </div>
@@ -161,7 +263,7 @@ export default function MovieDetails() {
         <div className="mx-auto max-w-6xl px-4 py-10">
           <p className="text-slate-300">Movie not found.</p>
           <Link to={`/movies?page=${page}`} className="text-indigo-400 hover:underline">
-            ← Back to Movies (Page {page})
+            ← Back to Movies
           </Link>
         </div>
       </div>
@@ -174,7 +276,7 @@ export default function MovieDetails() {
         {/* Top navigation */}
         <div className="flex flex-wrap items-center gap-3">
           <Link to={`/movies?page=${page}`} className="text-indigo-400 hover:underline">
-            ← Back to Movies (Page {page})
+            ← Back to Movies
           </Link>
 
           <span className="text-sm text-slate-400">
@@ -222,6 +324,43 @@ export default function MovieDetails() {
           {/* Poster */}
           <div className="rounded-2xl border border-slate-800 bg-slate-900/30 p-4">
             <Poster src={uiMovie.posterUrl || "/no-poster.png"} alt={uiMovie.title} />
+
+            {/* Actions */}
+            <div className="mt-4 space-y-3">
+              <button
+                onClick={toggleBookmark}
+                disabled={uiBusy}
+                className="w-full rounded-xl bg-white/10 px-4 py-3 text-sm font-semibold hover:bg-white/15 disabled:opacity-60"
+              >
+                {isBookmarked ? "★ Bookmarked (click to remove)" : "☆ Add to Bookmarks"}
+              </button>
+
+              <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-semibold">Your rating</div>
+                  <div className="text-xs text-slate-400">{myRating ? `${myRating}/10` : "Not rated"}</div>
+                </div>
+
+                <div className="mt-3 flex gap-2">
+                  <input
+                    value={ratingInput}
+                    onChange={(e) => setRatingInput(e.target.value)}
+                    placeholder="1–10"
+                    inputMode="numeric"
+                    className="w-24 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                  />
+                  <button
+                    onClick={submitRating}
+                    disabled={uiBusy}
+                    className="flex-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold hover:bg-indigo-500 disabled:opacity-60"
+                  >
+                    Save rating
+                  </button>
+                </div>
+              </div>
+
+              <ErrorMessage message={uiError} />
+            </div>
           </div>
 
           {/* Details */}

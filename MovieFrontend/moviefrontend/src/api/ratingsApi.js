@@ -1,26 +1,19 @@
 import apiClient from "./apiClient";
 
-export async function getUserRatings() {
-  const response = await apiClient.get("/api/ratings");
-  return response.data;
+// POST /api/ratings  { tconst, value }
+export async function rateTitle(tconst, value) {
+  const res = await apiClient.post("/api/ratings", { tconst, value });
+  return res.data;
 }
 
-export async function rateTitle(titleId, ratingValue) {
-  const response = await apiClient.post("/api/ratings", {
-    titleId,
-    ratingValue,
-  });
-  return response.data;
+// GET /api/ratings/my?page=&pageSize=
+export async function getMyRatings(page = 1, pageSize = 20) {
+  const res = await apiClient.get("/api/ratings/my", { params: { page, pageSize } });
+  return res.data;
 }
 
-export async function updateRating(ratingId, ratingValue) {
-  const response = await apiClient.put(`/api/ratings/${ratingId}`, {
-    ratingValue,
-  });
-  return response.data;
-}
-
-export async function deleteRating(ratingId) {
-  const response = await apiClient.delete(`/api/ratings/${ratingId}`);
-  return response.data;
+// DELETE /api/ratings/{tconst}
+export async function deleteRating(tconst) {
+  const res = await apiClient.delete(`/api/ratings/${tconst}`);
+  return res.data;
 }

@@ -1,16 +1,19 @@
 import apiClient from "./apiClient";
 
-export async function getBookmarks() {
-  const response = await apiClient.get("/api/bookmarks");
-  return response.data;
+// GET /api/bookmark?page=&pageSize=
+export async function getBookmarks(page = 1, pageSize = 20) {
+  const res = await apiClient.get("/api/bookmark", { params: { page, pageSize } });
+  return res.data; // { page, pageSize, total, items }
 }
 
-export async function addBookmark(titleId) {
-  const response = await apiClient.post("/api/bookmarks", { titleId });
-  return response.data;
+// POST /api/bookmark/title/{tconst}
+export async function addTitleBookmark(tconst) {
+  const res = await apiClient.post(`/api/bookmark/title/${tconst}`);
+  return res.data;
 }
 
-export async function removeBookmark(titleId) {
-  const response = await apiClient.delete(`/api/bookmarks/${titleId}`);
-  return response.data;
+// DELETE /api/bookmark/title/{tconst}
+export async function removeTitleBookmark(tconst) {
+  const res = await apiClient.delete(`/api/bookmark/title/${tconst}`);
+  return res.data;
 }

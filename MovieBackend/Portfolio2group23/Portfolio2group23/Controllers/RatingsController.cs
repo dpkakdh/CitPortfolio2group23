@@ -1,8 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Portfolio2group23.Services;
 using Portfolio2group23.DTOs;
-using System.Security.Claims;
+using Portfolio2group23.Services;
 
 namespace Portfolio2group23.Controllers
 {
@@ -21,6 +20,24 @@ namespace Portfolio2group23.Controllers
             var (ok, msg) = await _service.AddOrUpdateRatingAsync(uid, dto);
             if (!ok) return BadRequest(new { error = msg });
             return Ok(new { message = msg });
+        }
+
+        // GET /api/ratings/my?page=1&pageSize=20
+        [HttpGet("my")]
+        public async Task<IActionResult> MyRatings([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        {
+            var uid = int.Parse(User.FindFirst("uid")!.Value);
+            var result = await _service.GetUserRatingsPagedAsync(uid, page, pageSize);
+            return Ok(result);
+        }
+
+        // DELETE /api/ratings/tt123
+        [HttpDelete("{tconst}")]
+        public async Task<IActionResult> Remove(string tconst)
+        {
+            var uid = int.Parse(User.FindFirst("uid")!.Value);
+            var (ok, msg) = await _service.RemoveRatingAsync(uid, tconst);
+            return ok ? Ok(new { message = msg }) : NotFound(new { error = msg });
         }
     }
 }

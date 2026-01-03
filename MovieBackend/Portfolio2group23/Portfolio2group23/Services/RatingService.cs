@@ -14,15 +14,12 @@ namespace Portfolio2group23.Services
             _db = db;
         }
 
-        // Controller expects: (bool ok, string msg) = AddOrUpdateRatingAsync(userId, dto)
         public async Task<(bool ok, string msg)> AddOrUpdateRatingAsync(int userId, RatingDto dto)
         {
             if (dto == null || string.IsNullOrWhiteSpace(dto.Tconst))
                 return (false, "Missing tconst.");
 
-            // DTO Value is currently double (per your RatingDto). Convert safely to int (1..10).
             int value = (int)Math.Round(dto.Value);
-
             if (value < 1 || value > 10)
                 return (false, "Rating must be between 1 and 10.");
 
@@ -44,12 +41,11 @@ namespace Portfolio2group23.Services
                 return (true, "Rating added.");
             }
 
-            // Save previous rating into history BEFORE updating
             _db.RatingHistories.Add(new RatingHistory
             {
                 UserId = userId,
                 Tconst = dto.Tconst,
-                Value = existing.Value,          // <-- RatingHistory uses Value (not Rating)
+                Value = existing.Value,
                 ChangedAt = DateTime.UtcNow
             });
 
@@ -83,6 +79,39 @@ namespace Portfolio2group23.Services
             await _db.SaveChangesAsync();
 
             return (true, "Rating removed.");
+        }
+
+        public async Task<PagedResponse<RatingItemDto>> GetUserRatingsPagedAsync(int userId, int page, int pageSize)
+        {
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 1, 200);
+            var skip = (page - 1) * pageSize;
+
+            var baseQuery = _db.Ratings
+                .AsNoTracking()
+                .Where(r => r.UserId == userId);
+
+            var total = await baseQuery.CountAsync();
+
+            var items = await baseQuery
+                .OrderByDescending(r => r.UpdatedAt)
+                .Skip(skip)
+                .Take(pageSize)
+                .Select(r => new RatingItemDto
+                {
+                    Tconst = r.Tconst,
+                    Value = r.Value,
+                    UpdatedAt = r.UpdatedAt
+                })
+                .ToListAsync();
+
+            return new PagedResponse<RatingItemDto>
+            {
+                Page = page,
+                PageSize = pageSize,
+                Total = total,
+                Items = items
+            };
         }
     }
 }
