@@ -50,7 +50,7 @@ namespace Portfolio2group23.Services
 
             IQueryable<Title> baseQuery = _db.Titles.AsNoTracking();
 
-            // AND match every term across PrimaryTitle / OriginalTitle
+            // AND match every term across PrimaryTitle / OriginalTitle..
             foreach (var term in terms)
             {
                 var pat = $"%{term}%";
