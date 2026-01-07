@@ -2,9 +2,9 @@
 
 namespace Portfolio2group23.Models
 {
-    // -----------------------------
+    
     // SEARCH PERSON
-    // -----------------------------
+    
     public class TmdbSearchResponse
     {
         [JsonPropertyName("results")]

@@ -1,17 +1,26 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login, loading } = useAuth();
+  const { login, loading, isAuthenticated } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
   async function handleSubmit(e) {
     e.preventDefault();
+    if (loading) return;
+
     setError("");
 
     const res = await login(email, password);
@@ -68,7 +77,6 @@ export default function Login() {
             Use your email and password to access your account.
           </p>
 
-          {/* Error inside the return JSX */}
           {error && (
             <div className="mt-6 rounded-xl border border-red-900/50 bg-red-950/40 p-3 text-sm text-red-200">
               {error}
@@ -115,10 +123,6 @@ export default function Login() {
               </Link>
             </p>
           </form>
-
-          <p className="mt-6 text-xs text-slate-500 text-center">
-            Dummy login now  later we will connect to backend JWT login endpoint.
-          </p>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, {createContext, useContext, useMemo, useState} from "react";
 import { loginUser, registerUser } from "../api/authApi";
 
 const TOKEN_KEY = "token";
@@ -6,36 +6,38 @@ const TOKEN_KEY = "token";
 export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
+  const [token, setToken] = useState(() =>
+    localStorage.getItem(TOKEN_KEY)
+  );
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!token) {
-      setUser(null);
-      return;
-    }
-    if (!user) setUser({ isAuthenticated: true });
-  }, [token, user]);
 
   const login = async (email, password) => {
     setLoading(true);
     try {
       const res = await loginUser({ email, password });
       const jwt = res?.token;
-      if (!jwt) throw new Error("Token not returned from API");
+
+      if (!jwt) {
+        throw new Error("Token not returned from API");
+      }
 
       localStorage.setItem(TOKEN_KEY, jwt);
       setToken(jwt);
 
-      const u = res?.user || { email };
-      setUser(u);
+      // Only set user if backend actually sends it
+      if (res?.user) {
+        setUser(res.user);
+      }
 
-      return { success: true, token: jwt, user: u };
+      return { success: true };
     } catch (err) {
       return {
         success: false,
-        message: err?.response?.data?.message || err?.message || "Login failed",
+        message:
+          err?.response?.data?.message ||
+          err?.message ||
+          "Login failed",
       };
     } finally {
       setLoading(false);
@@ -50,7 +52,10 @@ export function AuthProvider({ children }) {
     } catch (err) {
       return {
         success: false,
-        message: err?.response?.data?.message || err?.message || "Registration failed",
+        message:
+          err?.response?.data?.message ||
+          err?.message ||
+          "Registration failed",
       };
     } finally {
       setLoading(false);
@@ -76,11 +81,17 @@ export function AuthProvider({ children }) {
     [token, user, loading]
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
+  if (!ctx) {
+    throw new Error("useAuth must be used within AuthProvider");
+  }
   return ctx;
 }

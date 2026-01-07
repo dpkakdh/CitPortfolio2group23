@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Portfolio2group23.DataServiceLayer.Data;
 using Portfolio2group23.DataServiceLayer.Models;
+
+using Portfolio2group23.DTOs;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -36,10 +38,14 @@ namespace Portfolio2group23.Controllers
         }
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] User login)
+        public async Task<IActionResult> Login([FromBody] LoginDto login)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == login.Email);
-            if (user == null || !BCrypt.Net.BCrypt.Verify(login.PasswordHash, user.PasswordHash))
+
+            if (user == null || !BCrypt.Net.BCrypt.Verify(login.Password, user.PasswordHash))
                 return Unauthorized(new { error = "Invalid email or password" });
 
             var tokenHandler = new JwtSecurityTokenHandler();
@@ -49,16 +55,24 @@ namespace Portfolio2group23.Controllers
             {
                 Subject = new ClaimsIdentity(new[]
                 {
-                    new Claim("uid", user.Id.ToString()),
-                    new Claim(ClaimTypes.Email, user.Email)
-                }),
+            new Claim("uid", user.Id.ToString()),
+            new Claim(ClaimTypes.Email, user.Email)
+        }),
                 Expires = DateTime.UtcNow.AddHours(3),
                 SigningCredentials = new SigningCredentials(
-                    new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+                    new SymmetricSecurityKey(key),
+                    SecurityAlgorithms.HmacSha256Signature
+                )
             };
 
             var token = tokenHandler.CreateToken(tokenDescriptor);
-            return Ok(new { token = tokenHandler.WriteToken(token), message = "Login successful" });
+
+            return Ok(new
+            {
+                token = tokenHandler.WriteToken(token),
+                message = "Login successful"
+            });
         }
+
     }
 }

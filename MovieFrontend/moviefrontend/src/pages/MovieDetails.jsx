@@ -249,7 +249,7 @@ export default function MovieDetails() {
       <div className="min-h-screen bg-slate-950 text-slate-100">
         <div className="mx-auto max-w-6xl px-4 py-10">
           <Loader />
-          <Link to={`/movies?page=${page}`} className="text-indigo-400 hover:underline">
+          <Link to={`/movies`} className="text-indigo-400 hover:underline">
             ← Back to Movies
           </Link>
         </div>
@@ -262,7 +262,7 @@ export default function MovieDetails() {
       <div className="min-h-screen bg-slate-950 text-slate-100">
         <div className="mx-auto max-w-6xl px-4 py-10">
           <p className="text-slate-300">Movie not found.</p>
-          <Link to={`/movies?page=${page}`} className="text-indigo-400 hover:underline">
+          <Link to={`/movies`} className="text-indigo-400 hover:underline">
             ← Back to Movies
           </Link>
         </div>
@@ -275,7 +275,7 @@ export default function MovieDetails() {
       <div className="mx-auto max-w-6xl px-4 py-8">
         {/* Top navigation */}
         <div className="flex flex-wrap items-center gap-3">
-          <Link to={`/movies?page=${page}`} className="text-indigo-400 hover:underline">
+          <Link to={`/movies`} className="text-indigo-400 hover:underline">
             ← Back to Movies
           </Link>
 

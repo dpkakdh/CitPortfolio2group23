@@ -1,17 +1,47 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { registerUser } from "../api/authApi";
 
 export default function Register() {
   const navigate = useNavigate();
+
   const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  function handleSubmit(e) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e) {
     e.preventDefault();
-    // Dummy register for now
-    navigate("/login");
+    setError("");
+    setLoading(true);
+
+    const payload = {
+    Username: username,      
+    FullName: fullName,      
+    Email: email,            
+    PasswordHash: password,  
+  };
+    
+    console.log("Register payload:", payload);
+
+    try {
+      await registerUser(payload);
+
+      navigate("/login");
+    } catch (err) {
+      // Catch both Axios error response and other JS errors
+      const msg =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Registration failed";
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -21,7 +51,6 @@ export default function Register() {
         <div className="hidden lg:flex flex-col justify-center rounded-3xl border border-slate-800 bg-slate-900/30 p-10 relative overflow-hidden">
           <div className="absolute -top-32 -right-24 h-72 w-72 bg-indigo-500/20 blur-3xl rounded-full" />
           <div className="absolute -bottom-32 -left-24 h-72 w-72 bg-fuchsia-500/20 blur-3xl rounded-full" />
-
           <div className="flex items-center gap-3 z-10">
             <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-500" />
             <div>
@@ -29,11 +58,9 @@ export default function Register() {
               <h1 className="text-xl font-semibold">Create Account</h1>
             </div>
           </div>
-
           <p className="mt-6 text-slate-300 z-10">
             Register to access personalized bookmarks, ratings, and analytics.
           </p>
-
           <div className="mt-8 space-y-3 z-10">
             <Feature text="Save bookmarks and view later" />
             <Feature text="Rate and track rating history" />
@@ -104,11 +131,15 @@ export default function Register() {
               />
             </div>
 
+            {error && <p className="text-sm text-red-400">{error}</p>}
+
             <button
               type="submit"
-              className="w-full rounded-xl bg-indigo-600 py-3 font-semibold hover:bg-indigo-500 transition"
+              disabled={loading}
+              className="w-full rounded-xl bg-indigo-600 py-3 font-semibold transition
+                         hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Create Account
+              {loading ? "Creating account..." : "Create Account"}
             </button>
 
             <p className="text-sm text-slate-400 text-center">
@@ -120,7 +151,7 @@ export default function Register() {
           </form>
 
           <p className="mt-6 text-xs text-slate-500 text-center">
-            Dummy registration now later we will connect to backend register endpoint.
+            Your password is securely hashed before storage.
           </p>
         </div>
       </div>

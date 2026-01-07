@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 
 
 export default function MovieCard({ movie }) {
-  console.log("🎬 MovieCard poster:", movie?.posterUrl);
+  console.log("MovieCard poster:", movie?.posterUrl);
 
   const [imgOk, setImgOk] = useState(true);
 

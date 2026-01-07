@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import MovieSearchBar from "../components/movies/MovieSearchBar";
 import MovieGrid from "../components/movies/MovieGrid";
 import { searchTitles } from "../api/searchApi";
 import Loader from "../components/common/Loader";
@@ -55,11 +54,11 @@ export default function SearchPage() {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold">Search Titles</h2>
+      {/* <h2 className="text-2xl font-bold">Search Titles</h2> */}
 
-      <div className="mt-4">
+      {/* <div className="mt-4">
         <MovieSearchBar onSearch={(query) => run(query, 1)} initialQuery={q} />
-      </div>
+      </div> */}
 
       {loading && <Loader />}
       <ErrorMessage message={error} />

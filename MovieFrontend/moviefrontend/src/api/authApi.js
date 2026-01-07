@@ -1,11 +1,24 @@
-import apiClient from "./apiClient";
+import axios from "axios";
+// import apiClient from "./apiClient";
 
-export async function registerUser(payload) {
-  const res = await apiClient.post("/api/auth/register", payload);
+const API_BASE = `${process.env.REACT_APP_API_BASE_URL}/api/Auth`;
+const TOKEN_KEY = "token";
+
+export const registerUser = async (payload) => {
+  const res = await axios.post(`${API_BASE}/register`, payload, {
+    headers: { "Content-Type": "application/json" },
+  });
   return res.data;
+};
+
+export const loginUser = async (payload) => {
+  const res = await axios.post(`${API_BASE}/login`, payload, {
+    headers: { "Content-Type": "application/json" },
+  });
+  return res.data;
+};
+
+  export function logoutUser() {
+  localStorage.removeItem(TOKEN_KEY);
 }
 
-export async function loginUser(payload) {
-  const res = await apiClient.post("/api/auth/login", payload);
-  return res.data; // expects { token, user? }
-}
